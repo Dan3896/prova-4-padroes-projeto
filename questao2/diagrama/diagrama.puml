@@ -1,0 +1,153 @@
+@startuml questao2
+title Questão 2 - Casa de Leilões Online (Observer + Strategy + Decorator)
+skinparam classAttributeIconSize 0
+
+class Main {
+  + {static} main(args : String[]) : void
+}
+
+package "Comunicação de lances (Observer)" {
+  interface Interessado <<Observer>> {
+    + novoLance(lote : Lote, lance : Lance) : void
+  }
+
+  interface Licitante {
+    + getNome() : String
+  }
+
+  class Lote <<Subject / Context>> {
+    - {static} INCREMENTO_MINIMO : double = 1.05
+    - nome : String
+    - categoria : String
+    - precoInicial : double
+    - precoReserva : double
+    - lanceAtual : double
+    - aberto : boolean
+    - vendido : boolean
+    + acompanhar(interessado : Interessado) : void
+    + deixarDeAcompanhar(interessado : Interessado) : void
+    - notificar(lance : Lance) : void
+    + darLance(participante : Licitante, valor : double) : boolean
+    + encerrar() : void
+    + setRegraComissao(regra : RegraComissao) : void
+    + calcularComissao() : double
+    + getValorVenda() : double
+    + getMaiorLance() : Lance
+    + getTotalLances() : int
+  }
+
+  class Lance {
+    - valor : double
+    + getParticipante() : Licitante
+    + getValor() : double
+  }
+
+  class Participante <<ConcreteObserver>> {
+    - nome : String
+    + getNome() : String
+    + novoLance(lote : Lote, lance : Lance) : void
+  }
+
+  class PainelLeiloeiro <<ConcreteObserver>> {
+    + novoLance(lote : Lote, lance : Lance) : void
+  }
+
+  class Auditor <<ConcreteObserver>> {
+    - registros : List<String>
+    + novoLance(lote : Lote, lance : Lance) : void
+    + imprimirRegistros() : void
+  }
+
+  Lote o--> "0..*" Interessado : interessados
+  Lote *--> "0..*" Lance : lances
+  Lance --> "1" Licitante : participante
+  Interessado <|.. Participante
+  Licitante <|.. Participante
+  Interessado <|.. PainelLeiloeiro
+  Interessado <|.. Auditor
+  Interessado ..> Lote
+  Interessado ..> Lance
+}
+
+package "Comissão do vendedor (Strategy)" {
+  interface RegraComissao <<Strategy>> {
+    + calcular(valorVenda : double) : double
+    + getDescricao() : String
+  }
+
+  class ComissaoArte <<ConcreteStrategy>>
+  class ComissaoVeiculos <<ConcreteStrategy>>
+  class ComissaoImoveis <<ConcreteStrategy>>
+  class ComissaoEletronicos <<ConcreteStrategy>>
+
+  class AcertoVendedor {
+    + imprimir(nomeLote : String, valorVenda : double, comissao : double) : void
+  }
+
+  RegraComissao <|.. ComissaoArte
+  RegraComissao <|.. ComissaoVeiculos
+  RegraComissao <|.. ComissaoImoveis
+  RegraComissao <|.. ComissaoEletronicos
+}
+
+Lote o--> "1" RegraComissao : regraComissao
+
+package "Serviços adicionais (Decorator)" {
+  interface Fatura <<Component>> {
+    + getDescricao() : String
+    + getValorVenda() : double
+    + getTotal() : double
+  }
+
+  class FaturaBase <<ConcreteComponent>> {
+    - nomeLote : String
+    - valorVenda : double
+  }
+
+  abstract class ServicoAdicional <<Decorator>> {
+    # {abstract} getNomeServico() : String
+    # {abstract} getCusto() : double
+    + getDescricao() : String
+    + getValorVenda() : double
+    + getTotal() : double
+  }
+
+  class SeguroTransporte <<ConcreteDecorator>>
+  class CertificadoAutenticidade <<ConcreteDecorator>>
+  class EmbalagemEspecial <<ConcreteDecorator>>
+  class EntregaExpressa <<ConcreteDecorator>>
+
+  class ImpressoraFatura {
+    + imprimir(fatura : Fatura) : void
+  }
+
+  Fatura <|.. FaturaBase
+  Fatura <|.. ServicoAdicional
+  ServicoAdicional o--> "1" Fatura : fatura
+  ServicoAdicional <|-- SeguroTransporte
+  ServicoAdicional <|-- CertificadoAutenticidade
+  ServicoAdicional <|-- EmbalagemEspecial
+  ServicoAdicional <|-- EntregaExpressa
+  ImpressoraFatura ..> Fatura
+}
+
+Main ..> Lote
+Main ..> Participante
+Main ..> PainelLeiloeiro
+Main ..> Auditor
+Main ..> RegraComissao
+Main ..> AcertoVendedor
+Main ..> Fatura
+Main ..> ImpressoraFatura
+
+note bottom of Lote
+  Só conhece Interessado, Licitante e RegraComissao
+  (RNF01, RNF02). A regra pode ser trocada em tempo
+  de execução com setRegraComissao (RF07).
+end note
+
+note bottom of ServicoAdicional
+  Cada serviço envolve a fatura anterior, em qualquer
+  combinação, ordem e quantidade (RNF03, RNF04).
+end note
+@enduml
