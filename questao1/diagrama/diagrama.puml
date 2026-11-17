@@ -1,0 +1,180 @@
+@startuml questao1
+title Questão 1 - Provisionamento Multinuvem (Abstract Factory + Singleton)
+skinparam classAttributeIconSize 0
+
+' ===== Abstract Factory =====
+interface FabricaNuvem <<AbstractFactory>> {
+  + getNomeProvedor() : String
+  + criarMaquinaVirtual() : MaquinaVirtual
+  + criarArmazenamento() : Armazenamento
+  + criarFilaMensagens() : FilaMensagens
+  + getCustoHoraMaquina() : double
+  + getCustoGbArmazenamento() : double
+  + getCustoFixoFila() : double
+}
+
+class AwsFabrica <<ConcreteFactory>>
+class AzureFabrica <<ConcreteFactory>>
+
+interface MaquinaVirtual <<AbstractProduct>> {
+  + getId() : String
+  + getCustoPorHora() : double
+}
+interface Armazenamento <<AbstractProduct>> {
+  + getId() : String
+  + getCustoPorGb() : double
+}
+interface FilaMensagens <<AbstractProduct>> {
+  + getId() : String
+  + getCustoFixoMensal() : double
+}
+
+class AwsMaquinaVirtual <<ConcreteProduct>> {
+  + {static} CUSTO_POR_HORA : double = 0.10
+  - {static} sequencial : AtomicInteger
+  - id : String
+}
+class AwsArmazenamento <<ConcreteProduct>> {
+  + {static} CUSTO_POR_GB : double = 0.023
+  - {static} sequencial : AtomicInteger
+  - id : String
+}
+class AwsFilaMensagens <<ConcreteProduct>> {
+  + {static} CUSTO_FIXO_MENSAL : double = 0.40
+  - {static} sequencial : AtomicInteger
+  - id : String
+}
+class AzureMaquinaVirtual <<ConcreteProduct>> {
+  + {static} CUSTO_POR_HORA : double = 0.12
+  - {static} sequencial : AtomicInteger
+  - id : String
+}
+class AzureArmazenamento <<ConcreteProduct>> {
+  + {static} CUSTO_POR_GB : double = 0.02
+  - {static} sequencial : AtomicInteger
+  - id : String
+}
+class AzureFilaMensagens <<ConcreteProduct>> {
+  + {static} CUSTO_FIXO_MENSAL : double = 0.50
+  - {static} sequencial : AtomicInteger
+  - id : String
+}
+
+FabricaNuvem <|.. AwsFabrica
+FabricaNuvem <|.. AzureFabrica
+
+MaquinaVirtual <|.. AwsMaquinaVirtual
+MaquinaVirtual <|.. AzureMaquinaVirtual
+Armazenamento <|.. AwsArmazenamento
+Armazenamento <|.. AzureArmazenamento
+FilaMensagens <|.. AwsFilaMensagens
+FilaMensagens <|.. AzureFilaMensagens
+
+AwsFabrica ..> AwsMaquinaVirtual : <<create>>
+AwsFabrica ..> AwsArmazenamento : <<create>>
+AwsFabrica ..> AwsFilaMensagens : <<create>>
+AzureFabrica ..> AzureMaquinaVirtual : <<create>>
+AzureFabrica ..> AzureArmazenamento : <<create>>
+AzureFabrica ..> AzureFilaMensagens : <<create>>
+
+FabricaNuvem ..> MaquinaVirtual
+FabricaNuvem ..> Armazenamento
+FabricaNuvem ..> FilaMensagens
+
+' ===== Cliente =====
+class Provisionador <<Client>> {
+  - {static} HORAS_POR_MES : int = 730
+  - fabrica : FabricaNuvem
+  + Provisionador(fabrica : FabricaNuvem)
+  + provisionar(solicitacao : Solicitacao) : Ambiente
+  - estimarCustoMensal(solicitacao : Solicitacao) : double
+}
+
+class Solicitacao {
+  - nomeAmbiente : String
+  - provedor : String
+  - quantidadeMaquinas : int
+  - gbArmazenamento : int
+}
+
+class Ambiente {
+  - nome : String
+  - provedor : String
+  - regiao : String
+  - custoMensalEstimado : double
+  + resumo() : String
+}
+
+class SeletorProvedor <<Seletor do provedor>> {
+  + {static} escolher(provedor : String) : FabricaNuvem
+}
+
+class Main {
+  + {static} main(args : String[]) : void
+  - {static} provisionar(solicitacao : Solicitacao) : void
+}
+
+Provisionador o--> "1" FabricaNuvem : fabrica
+Provisionador ..> Solicitacao
+Provisionador ..> Ambiente : <<create>>
+Ambiente o--> "1..*" MaquinaVirtual
+Ambiente o--> "1" Armazenamento
+Ambiente o--> "1" FilaMensagens
+
+SeletorProvedor ..> AwsFabrica : <<create>>
+SeletorProvedor ..> AzureFabrica : <<create>>
+Main ..> SeletorProvedor
+Main ..> Provisionador
+Main ..> Solicitacao
+Main ..> HistoricoAuditoria
+
+' ===== Singletons =====
+class Configuracao <<Singleton>> {
+  - {static} instancia : Configuracao
+  - regiaoPadrao : String
+  - orcamentoMensalMaximo : double
+  - Configuracao()
+  + {static} getInstancia() : Configuracao {synchronized}
+  - abrirArquivo() : InputStream
+  + getRegiaoPadrao() : String
+  + getOrcamentoMensalMaximo() : double
+}
+
+class HistoricoAuditoria <<Singleton>> {
+  - {static} instancia : HistoricoAuditoria
+  - registros : List<RegistroAuditoria>
+  - HistoricoAuditoria()
+  + {static} getInstancia() : HistoricoAuditoria {synchronized}
+  + registrar(nomeAmbiente : String, provedor : String, resultado : String) : void {synchronized}
+  + getTotalRegistros() : int {synchronized}
+  + imprimir() : void {synchronized}
+}
+
+class RegistroAuditoria {
+  - dataHora : LocalDateTime
+  - nomeAmbiente : String
+  - provedor : String
+  - resultado : String
+  + toString() : String
+}
+
+Configuracao --> Configuracao : instancia
+HistoricoAuditoria --> HistoricoAuditoria : instancia
+HistoricoAuditoria *--> "0..*" RegistroAuditoria
+Provisionador ..> Configuracao : getInstancia()
+Provisionador ..> HistoricoAuditoria : getInstancia()
+
+note bottom of Provisionador
+  Recebe uma única fábrica e só conhece interfaces:
+  os três recursos são sempre do mesmo provedor
+  (RNF01, RNF02), sem if/switch de provedor.
+end note
+
+note bottom of Configuracao
+  config.properties lido uma única vez (RNF04).
+end note
+
+note bottom of HistoricoAuditoria
+  Histórico único e thread-safe (RNF05).
+end note
+@enduml
